@@ -25,16 +25,22 @@ spec:
     limits:
       cpu: 100m
       memory: 64Mi
-  # Route every incoming alert to the homelab Telegram bridge over the
-  # WireGuard tunnel; same bridge the Kafka project uses.
-  # The three OCI network traps (SNAT, FORWARD reject, AllowedIPs) are
-  # already fixed on this VM - see the kafka-slo-observability postmortem
-  # if you hit this on a fresh VM.
+  # Routing scoped deliberately: default receiver is 'null', and only this
+  # project's own VMRule-defined alerts (plus VMAgent self-SLO) get routed
+  # to the homelab Telegram bridge over the WireGuard tunnel. The reason:
+  # vmoperator's Prometheus Converter pulls every PrometheusRule from
+  # kube-prometheus-stack into vmalert as a VMRule, so without a scoped
+  # route the Kube{Proxy,ControllerManager,Scheduler}Down defaults fire
+  # constantly on k3s (which inlines those components into the k3s server
+  # binary and does not expose standalone /metrics endpoints for them).
+  # The three OCI network traps on the Telegram bridge path (SNAT,
+  # FORWARD reject, WireGuard AllowedIPs) are documented in the Kafka
+  # project postmortem - they're already fixed on this VM.
   configRawYaml: |
     global:
       resolve_timeout: 5m
     route:
-      receiver: homelab-telegram
+      receiver: 'null'
       group_by: [alertname, cluster]
       group_wait: 30s
       group_interval: 5m
@@ -42,9 +48,14 @@ spec:
       routes:
         - receiver: homelab-telegram
           matchers:
-            - severity="critical"
-          repeat_interval: 15m
+            - alertname=~"ApiServerDown|KubeletDown|ScrapeTargetMissing|NodeMemoryPressure|VMAgent.*"
+          routes:
+            - receiver: homelab-telegram
+              matchers:
+                - severity="critical"
+              repeat_interval: 15m
     receivers:
+      - name: 'null'
       - name: homelab-telegram
         webhook_configs:
           - url: http://10.0.0.1:30119/webhook
