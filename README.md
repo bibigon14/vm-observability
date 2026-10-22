@@ -47,14 +47,23 @@ What VictoriaMetrics is NOT:
 | `VMAlert` | Evaluates `VMRule` CRs, pushes to Alertmanager | 1 | ~60 MiB |
 | `VMAlertmanager` | Notification routing (or reuse existing one) | 1 | ~50 MiB |
 
-Total: ~600 MiB for the whole stack, scraping the OCI VM's k3s cluster
-(kubelet, node-exporter, kube-state-metrics, plus the Kafka project's
-PodMonitor-equivalents).
+Total measured: **448 MiB RSS** for the whole stack after 15m
+steady-state on the real OCI VM, scraping 24 targets at 30s interval
+(kubelet x3, Kafka cluster, Prometheus Operator stack, apiserver,
+coredns, kube-state-metrics, and self-monitoring).
 
-Compare: the same scrape surface under kube-prometheus-stack runs around
-~1.1-1.3 GiB resident across Prometheus + Operator + Alertmanager +
-Grafana. VM saves roughly half the memory at this scale, which is the
-whole reason it exists on the OCI free tier.
+Compare: the same scrape surface under the kube-prometheus-stack already
+running on this VM is **631 MiB RSS** across Prometheus + Operator +
+Alertmanager (Prometheus alone is 541 MiB). VM saves **~29% RAM at this
+scale** - numbers and methodology in [`docs/benchmark.md`](docs/benchmark.md).
+
+**The scrape surface was auto-discovered.** vmoperator ships with a
+Prometheus Converter that reconciles every `monitoring.coreos.com/v1`
+PodMonitor / ServiceMonitor on the cluster into a matching VM equivalent
+automatically, so dropping vmagent onto a cluster that already runs
+Prometheus Operator means VM starts scraping the same targets within
+one reconcile loop, without touching a single existing CR. This is also
+what makes an incremental Prometheus → VM migration realistic.
 
 ## Layout
 
