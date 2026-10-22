@@ -37,6 +37,6 @@ spec:
   # Watch all namespaces for VMRule CRs
   selectAllByDefault: true
   evaluationInterval: 30s
-  extraArgs:
-    # Expose rule eval duration as a histogram for the self-SLO alert
-    external.label.cluster: oci-ampere-a1
+  # External labels are set on VMAgent (externalLabels: in vmagent.yaml);
+  # vmalert does not accept per-alert external labels via a flag of its
+  # own and inherits them from the datasource at query time.
