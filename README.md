@@ -7,6 +7,8 @@ rather than the monolithic Helm chart.
 
 [![validate](https://github.com/bibigon14/vm-observability/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/bibigon14/vm-observability/actions/workflows/validate.yml)
 
+![VMSingle self-monitoring dashboard](docs/screenshots/01-vmsingle-dashboard.png)
+
 The project exists to answer a question I keep getting at interviews:
 *"you ran kube-prometheus-stack - would you choose it again at the next
 company?"* The honest answer requires having actually run both. This repo
