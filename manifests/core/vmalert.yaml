@@ -1,0 +1,42 @@
+# VMAlert - rule evaluator.
+#
+# Reads VMRule CRs (same syntax as Prometheus's PrometheusRule, just
+# wrapped in a different Group), queries VMSingle for the alert
+# expressions, and sends firing alerts to Alertmanager over HTTP.
+#
+# Why separate from VMSingle: evaluation is a different workload than
+# ingest, and VMAlert can also work against a remote Prometheus if you're
+# running a mixed stack. Keeping it as its own pod lets us scale it
+# independently and restart rule reloads without touching storage.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAlert
+metadata:
+  name: main
+  namespace: vm
+spec:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  # Query backend
+  datasource:
+    url: http://vmsingle-main.vm.svc:8429
+  # Where firing alerts go
+  notifiers:
+    - url: http://vmalertmanager-main.vm.svc:9093
+  # Also record recording-rule outputs back into VMSingle, so dashboards
+  # can read them like any other series
+  remoteWrite:
+    url: http://vmsingle-main.vm.svc:8429
+  remoteRead:
+    url: http://vmsingle-main.vm.svc:8429
+  # Watch all namespaces for VMRule CRs
+  selectAllByDefault: true
+  evaluationInterval: 30s
+  extraArgs:
+    # Expose rule eval duration as a histogram for the self-SLO alert
+    external.label.cluster: oci-ampere-a1

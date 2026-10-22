@@ -1,0 +1,32 @@
+# VictoriaMetrics operator Helm values.
+#
+# Scope deliberately narrow: this chart installs ONLY the operator and its
+# CRDs. The data-plane CRs (VMSingle, VMAgent, VMAlert, ...) live in
+# manifests/core/ so they can be read, reviewed, and version-controlled on
+# their own, rather than hidden inside Helm chart templating.
+#
+# The sibling chart `victoria-metrics-k8s-stack` would install everything in
+# one shot but obscures what each piece does - fine for a dev loop, bad for
+# a portfolio piece whose point is to show how the operator pattern works.
+operator:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 300m
+      memory: 128Mi
+  # Watch all namespaces; we scrape kube-system (kubelet, node-exporter),
+  # kafka (Strimzi), and anything else that lands on the cluster.
+  watchNamespaces: []
+
+# Ship the CRDs with the operator (default). Alternative is to let the chart
+# consumer install CRDs separately for GitOps multi-tenancy; not needed here.
+crds:
+  create: true
+  cleanOnDelete: false
+
+# Service account - default is fine, cluster-wide RBAC rules are generated
+# by the chart for VictoriaMetrics CRDs.
+serviceAccount:
+  create: true

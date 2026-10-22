@@ -1,0 +1,50 @@
+# VMSingle - single-node storage + query engine.
+#
+# "Single" means one pod handles ingest, storage, and query. Fine up to
+# ~5M samples/sec and ~10-100M active series, which is well above
+# anything a single OCI Ampere A1 VM is going to produce.
+#
+# For HA/scale we would use VMCluster (vmstorage x3 + vminsert x2 +
+# vmselect x2); the migration is documented in docs/architecture.md
+# but intentionally not included in v0.1 to keep the resource footprint
+# honest for a free-tier VM.
+#
+# Retention 15d is enough for all SLO rules (longest window is 6h /
+# multi-burn-rate) and keeps disk use well under 2 GiB at the current
+# scrape surface.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMSingle
+metadata:
+  name: main
+  namespace: vm
+spec:
+  retentionPeriod: "15d"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+  storage:
+    accessModes: [ReadWriteOnce]
+    resources:
+      requests:
+        storage: 5Gi
+  # Expose vmselect for Grafana at a predictable Service port
+  serviceSpec:
+    spec:
+      ports:
+        - name: http
+          port: 8429
+          targetPort: 8429
+  # Extra args that we always want on
+  extraArgs:
+    # cardinality limiter - fail the write rather than let an exploded
+    # label-set OOM the pod
+    maxLabelsPerTimeseries: "40"
+    maxLabelValueLen: "4096"
+    # dedup: 1 second window drops exact-timestamp duplicates (useful
+    # when the same target is scraped by two vmagent replicas; harmless
+    # otherwise)
+    dedup.minScrapeInterval: "1s"

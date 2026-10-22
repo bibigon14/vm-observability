@@ -1,0 +1,42 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  yamllint:
+    name: yamllint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: karancode/yamllint-github-action@v3.0.0
+        with:
+          yamllint_file_or_dir: 'manifests'
+          yamllint_strict: true
+          yamllint_config_filepath: '.yamllint'
+
+  kubeconform:
+    name: kubeconform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - name: Install kubeconform
+        run: |
+          curl -sSfL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz \
+            | tar -xzf - -C /usr/local/bin kubeconform
+          kubeconform -v
+      - name: Validate manifests
+        # VictoriaMetrics CRDs come from the operator.victoriametrics.com group;
+        # datreeio/CRDs-catalog mirrors them. Operator Helm values file is skipped
+        # (not a kubernetes manifest).
+        run: |
+          find manifests -name '*.yaml' -not -path 'manifests/operator/*' -print0 \
+            | xargs -0 kubeconform \
+                -strict \
+                -ignore-missing-schemas \
+                -schema-location default \
+                -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+                -summary

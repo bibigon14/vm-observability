@@ -1,0 +1,47 @@
+# VMNodeScrape - direct node endpoint scrape (kubelet metrics, cadvisor).
+#
+# Prometheus Operator uses two ServiceMonitors on the kubelet Service in
+# kube-system to scrape /metrics and /metrics/cadvisor. The equivalent in
+# VictoriaMetrics-land is a pair of VMNodeScrape CRs that target the
+# node's kubelet HTTPS port directly (10250).
+#
+# This gives us node-level CPU/memory/disk + per-pod cgroup metrics,
+# which are what every k8s Grafana dashboard assumes exists.
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMNodeScrape
+metadata:
+  name: kubelet
+  namespace: vm
+spec:
+  scheme: https
+  tlsConfig:
+    insecureSkipVerify: true
+  bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+  path: /metrics
+  interval: 30s
+  scrapeTimeout: 10s
+  relabelConfigs:
+    - sourceLabels: [__meta_kubernetes_node_name]
+      targetLabel: node
+    - targetLabel: endpoint
+      replacement: https-metrics
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMNodeScrape
+metadata:
+  name: cadvisor
+  namespace: vm
+spec:
+  scheme: https
+  tlsConfig:
+    insecureSkipVerify: true
+  bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+  path: /metrics/cadvisor
+  interval: 30s
+  scrapeTimeout: 10s
+  relabelConfigs:
+    - sourceLabels: [__meta_kubernetes_node_name]
+      targetLabel: node
+    - targetLabel: endpoint
+      replacement: https-cadvisor

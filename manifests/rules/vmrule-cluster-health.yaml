@@ -1,0 +1,102 @@
+# VMRule - the VictoriaMetrics equivalent of PrometheusRule.
+#
+# Rule syntax is identical to Prometheus (groups + rules + alert/record +
+# expr + for + labels + annotations). vmalert evaluates these against
+# VMSingle at `evaluationInterval` and routes firing alerts to Alertmanager.
+#
+# This file covers the handful of cluster-health alerts every production
+# k8s cluster should have:
+#   - API server down
+#   - kubelet down
+#   - node under memory pressure
+#   - scrape target gone
+#   - vmagent itself failing to deliver samples
+#
+# Severity split follows the Google SRE Workbook pattern: `critical`
+# pages, `warning` files a ticket. Alertmanager routes by severity -
+# see manifests/core/vmalertmanager.yaml.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: cluster-health
+  namespace: vm
+spec:
+  groups:
+    - name: cluster-health
+      interval: 30s
+      rules:
+        # ---- hard-failure alerts (page) ----
+        - alert: ApiServerDown
+          expr: sum(up{job="apiserver"}) == 0
+          for: 2m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "Kubernetes API server is unreachable"
+            description: "No API server endpoint has responded to a scrape in the last 2 minutes. Cluster is effectively frozen."
+
+        - alert: KubeletDown
+          expr: count(up{job=~".*kubelet.*"} == 0) > 0
+          for: 5m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "{{ $value }} kubelet(s) down"
+            description: "Kubelet on {{ $labels.node }} has been unreachable for 5m. Pods on this node are not being reconciled."
+
+        - alert: ScrapeTargetMissing
+          expr: up == 0
+          for: 10m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Scrape target {{ $labels.job }}/{{ $labels.instance }} down for 10m"
+            description: "vmagent cannot reach this target. Metrics for it will have a gap."
+
+        # ---- resource pressure (ticket) ----
+        - alert: NodeMemoryPressure
+          expr: |
+            (
+              node_memory_MemAvailable_bytes
+              / node_memory_MemTotal_bytes
+            ) < 0.10
+          for: 15m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Node {{ $labels.instance }} has < 10% memory free"
+            description: "Available memory is {{ $value | humanizePercentage }}. kubelet will start evicting pods before 0."
+
+        # ---- self-SLO: VictoriaMetrics itself ----
+        - alert: VMAgentRemoteWriteFailing
+          expr: |
+            rate(vmagent_remotewrite_retries_count_total[5m]) > 1
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "vmagent is retrying remote-writes to VMSingle"
+            description: "Retry rate: {{ $value }} per second. If this sustains, scrape data will be dropped once the on-disk queue fills."
+
+        - alert: VMAgentScrapeFailing
+          expr: |
+            rate(vm_promscrape_scrapes_failed_total[5m]) > 0.1
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "vmagent scrape failure rate > 0.1/s"
+            description: "{{ $value | humanize }} failed scrapes per second. Check vmagent logs for the offending target."
+
+        # ---- recording rule used by other dashboards ----
+        - record: cluster:node_memory_utilization:ratio
+          expr: |
+            1 - avg by (cluster) (
+              node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes
+            )

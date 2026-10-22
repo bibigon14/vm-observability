@@ -1,0 +1,35 @@
+# Grafana datasource ConfigMap for VictoriaMetrics.
+#
+# kube-prometheus-stack ships Grafana with a sidecar that watches for
+# ConfigMaps labelled `grafana_datasource=1` and loads any datasource
+# definition inside. This file hands it a Prometheus-compatible pointer
+# to vmsingle - VictoriaMetrics exposes the Prometheus /api/v1/query*
+# endpoints verbatim, so Grafana treats it as a Prometheus datasource.
+#
+# The datasource points at vmselect inside VMSingle (same pod in single
+# mode, dedicated vmselect pods in VMCluster mode).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource-vm
+  namespace: monitoring
+  labels:
+    grafana_datasource: "1"
+data:
+  vm.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: VictoriaMetrics
+        type: prometheus
+        access: proxy
+        url: http://vmsingle-main.vm.svc:8429
+        isDefault: false
+        editable: false
+        jsonData:
+          timeInterval: 30s
+          httpMethod: POST
+          prometheusType: Prometheus
+          # vmsingle supports MetricsQL on top of PromQL - Grafana does
+          # not need to know, but marking it here keeps future datasource
+          # drift honest.
+          customQueryParameters: ""

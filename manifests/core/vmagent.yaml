@@ -1,0 +1,44 @@
+# VMAgent - scraper + remote-write client.
+#
+# Reads VMPodScrape / VMServiceScrape / VMNodeScrape CRs the same way
+# Prometheus Operator reads PodMonitor / ServiceMonitor, builds its own
+# scrape config, remote-writes to VMSingle.
+#
+# Pattern note: the Prometheus Operator CRDs are NOT compatible with
+# vmoperator. Prometheus's PodMonitor is monitoring.coreos.com/v1;
+# VictoriaMetrics expects operator.victoriametrics.com/v1beta1
+# VMPodScrape. Same schema, different Group - a straight sed from
+# existing PodMonitors works for the common cases. There is a
+# "Prometheus converter" built into vmoperator (enabled by default) that
+# will auto-translate ServiceMonitor / PodMonitor into VM equivalents in
+# the same namespace, but we're not relying on it here - the point is to
+# show the native VM CRs for the portfolio.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAgent
+metadata:
+  name: main
+  namespace: vm
+spec:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  # Where to write the scraped samples
+  remoteWrite:
+    - url: http://vmsingle-main.vm.svc:8429/api/v1/write
+  # Watch all namespaces for scrape CRs
+  selectAllByDefault: true
+  # Prometheus relabeling-compatible top-level config pieces
+  externalLabels:
+    cluster: oci-ampere-a1
+    region: us-sanjose-1
+  # Scrape interval default - override per CR if needed
+  scrapeInterval: 30s
+  # Enable the staleness marker on target drop, same semantics as
+  # Prometheus 2.x
+  arbitraryFSAccessThroughSMs:
+    deny: true

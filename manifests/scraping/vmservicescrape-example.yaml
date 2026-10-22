@@ -1,0 +1,28 @@
+# VMServiceScrape - equivalent of Prometheus Operator ServiceMonitor.
+#
+# Use when the scrape target is addressed via a k8s Service (anything
+# fronted by kube-state-metrics, node-exporter DaemonSet, Grafana itself,
+# etc.) rather than per-pod. The operator walks Service -> Endpoints ->
+# pods and discovers one scrape target per endpoint.
+#
+# This example scrapes kube-state-metrics (install it with:
+#   helm install kube-state-metrics prometheus-community/kube-state-metrics
+#     -n kube-system
+# or whatever path your cluster uses).
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: kube-state-metrics
+  namespace: vm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kube-state-metrics
+  namespaceSelector:
+    matchNames:
+      - kube-system
+  endpoints:
+    - port: http
+      interval: 30s
+      scrapeTimeout: 10s
+      honorLabels: true

@@ -1,0 +1,16 @@
+# yamllint config for vm-observability
+# Mirrors the one in kafka-slo-observability so both repos lint the same.
+extends: default
+
+rules:
+  line-length:
+    max: 160
+    level: warning
+  comments:
+    min-spaces-from-content: 1
+  truthy:
+    allowed-values: ['true', 'false', 'on', 'off']
+  document-start: disable
+  indentation:
+    spaces: 2
+    indent-sequences: true

@@ -1,0 +1,51 @@
+# VMAlertmanager - this is Prometheus Alertmanager, packaged as a VM
+# operator CR. Same binary, same config, same routing - vmoperator just
+# reconciles it into StatefulSet shape for you.
+#
+# This dedicated Alertmanager keeps the vm/ stack self-contained; if
+# we wanted to reuse the one that kube-prometheus-stack ships (so the
+# Kafka project and this project route into the same Telegram bridge),
+# we would delete this CR and point VMAlert's notifiers.url at
+# monitoring-kube-prometheus-alertmanager.monitoring.svc:9093. For
+# the portfolio piece, having two Alertmanagers side by side is itself
+# a signal - they are the same binary at different versions, and
+# vmoperator vs prometheus-operator reconcile the config secret the
+# same way under the hood.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAlertmanager
+metadata:
+  name: main
+  namespace: vm
+spec:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+  # Route every incoming alert to the homelab Telegram bridge over the
+  # WireGuard tunnel; same bridge the Kafka project uses.
+  # The three OCI network traps (SNAT, FORWARD reject, AllowedIPs) are
+  # already fixed on this VM - see the kafka-slo-observability postmortem
+  # if you hit this on a fresh VM.
+  configRawYaml: |
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: homelab-telegram
+      group_by: [alertname, cluster]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 1h
+      routes:
+        - receiver: homelab-telegram
+          matchers:
+            - severity="critical"
+          repeat_interval: 15m
+    receivers:
+      - name: homelab-telegram
+        webhook_configs:
+          - url: http://10.0.0.1:30119/webhook
+            send_resolved: true
