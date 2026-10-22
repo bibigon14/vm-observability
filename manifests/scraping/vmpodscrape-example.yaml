@@ -2,8 +2,9 @@
 #
 # Schema is byte-for-byte compatible with PodMonitor's for the fields we
 # actually use (selector, namespaceSelector, podMetricsEndpoints with
-# port/path/relabelings). The only wire change from PodMonitor is the
-# apiVersion and kind.
+# port/path/relabelConfigs). The wire difference from PodMonitor: VM
+# renames the field from `relabelings` to `relabelConfigs` and the
+# apiVersion/kind change.
 #
 # This example scrapes any pod labelled `app=demo` on port named `metrics`
 # at /metrics. Drop it in to see how the operator reconciles it into
@@ -24,7 +25,7 @@ spec:
       path: /metrics
       interval: 30s
       scrapeTimeout: 10s
-      relabelings:
+      relabelConfigs:
         - sourceLabels: [__meta_kubernetes_namespace]
           targetLabel: namespace
         - sourceLabels: [__meta_kubernetes_pod_name]
