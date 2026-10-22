@@ -14,6 +14,15 @@ The project exists to answer a question I keep getting at interviews:
 company?"* The honest answer requires having actually run both. This repo
 is the "both" side.
 
+## Side-by-side with Prometheus
+
+VictoriaMetrics is wired into the same Grafana as the existing
+kube-prometheus-stack - both datasources are selectable per panel, so a
+dashboard can draw the same query against both engines for direct
+comparison without touching the storage layer.
+
+![Grafana datasource list - VictoriaMetrics alongside Prometheus](docs/screenshots/02-datasources.png)
+
 ## Why VictoriaMetrics (not another Prometheus)
 
 - **Memory**: ~5x lower RSS for the same scrape target set and retention
@@ -59,6 +68,8 @@ running on this VM is **631 MiB RSS** across Prometheus + Operator +
 Alertmanager (Prometheus alone is 541 MiB). VM saves **~29% RAM at this
 scale** - numbers and methodology in [`docs/benchmark.md`](docs/benchmark.md).
 
+![kubectl top side-by-side: 661 MiB kube-prometheus-stack vs 478 MiB VictoriaMetrics (28% less)](docs/screenshots/03-kubectl-top-sidebyside.png)
+
 **The scrape surface was auto-discovered.** vmoperator ships with a
 Prometheus Converter that reconciles every `monitoring.coreos.com/v1`
 PodMonitor / ServiceMonitor on the cluster into a matching VM equivalent
@@ -66,6 +77,14 @@ automatically, so dropping vmagent onto a cluster that already runs
 Prometheus Operator means VM starts scraping the same targets within
 one reconcile loop, without touching a single existing CR. This is also
 what makes an incremental Prometheus → VM migration realistic.
+
+![vmagent /targets - 24 targets auto-translated from the kafka-slo-observability repo's PodMonitor and ServiceMonitor CRs by the Prometheus Converter, with no VMPodScrape of our own](docs/screenshots/04-vmagent-targets.png)
+
+Row-level evidence of that in the shot above: every `podScrape/kafka/*`
+and `serviceScrape/monitoring/*` target is a direct reconciliation of a
+PodMonitor / ServiceMonitor the Kafka project installed - we did not
+write a single `VMPodScrape` CR for them in this repo.
+
 
 ## Layout
 

@@ -50,7 +50,9 @@ the existing kube-prometheus-stack on the same single-node k3s cluster.
 | alert evaluator | *(inside prometheus)* | 25 MiB (vmalert) |
 | **total scrape-plane** | **631 MiB** | **448 MiB** |
 
-**Delta: ~29% less RSS for VictoriaMetrics** at this scrape surface. The
+**Delta: ~29% less RSS for VictoriaMetrics** at this scrape surface.
+
+![Live kubectl top on the OCI VM: 661 MiB vs 478 MiB totals, 28% delta](screenshots/03-kubectl-top-sidebyside.png) The
 single-biggest line is Prometheus's monolithic 541 MiB pod vs the 77+266
 MiB split in VM, where vmagent (scraping) and vmsingle (storage) are
 separate processes that can be scaled independently.
