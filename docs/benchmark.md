@@ -30,7 +30,7 @@ estimated - series count climbed higher than the first guess because
 cadvisor's per-container label set is wider on this cluster than
 textbook examples assume), 30s scrape interval, 15-day retention.
 
-**At this active-series count, VMSingle holds 9.95M datapoints in
+At this active-series count, VMSingle holds 9.95M datapoints in
 **39.8 MiB** on disk - that's **3.82 bytes per point** including
 zstd compression and the per-series index. Prometheus TSDB on the
 same scrape surface sits around 10-12 bytes per point.
@@ -107,9 +107,10 @@ Prometheus deployment when confidence is there.
 
 ## Caveats
 
-1. **This is small-scale**: 15K active series is well below the knee
-   of either engine. The gap widens at 1M+ series and shrinks at under
-   1K.
+1. **This is small-scale**: 142K active series is well below the knee
+   of either engine (VictoriaMetrics typically scales to 10M+ on a
+   single node). The gap widens at 1M+ series and shrinks at under
+   10K.
 2. **No HA on either side**: the Prometheus number is single-replica,
    not a Thanos-fronted HA pair. A fair HA comparison would be
    Prometheus x2 + Thanos vs VMCluster (3+2+2 pods) and the memory
